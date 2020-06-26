@@ -1,4 +1,5 @@
 #include "PsgDecoder.h"
+#include "AyControl.h"
 
 //Offset Number of byte Description
 //+ 0 3 Identifier 'PSG'
@@ -20,11 +21,30 @@ static const uint8_t CMD_END = 0xFD;
 
 PsgDecoder::PsgDecoder()
   : mSkipTicks(0)
-{  
+{
 }
 
+// TODO: dbg
+//uint8_t buf[2048];
+//uint16_t bufPos = 2048;
+
+// TODO: buffered stream
+//inline uint8_t readBuffered(File &f) {
+//  if (bufPos == 2048) {
+//    Serial.println("fread");
+//    f.read(buf, 2048);
+//    bufPos = 0;
+//    if (!f.available())
+//    {
+//      Serial.println("PSG: eof");
+//      return 0L; // TODO: stop here
+//    }
+//  }
+//  return buf[bufPos++];
+//}
+
 // 20ms delay...
-bool PsgDecoder::tick(File &f, Stream& out)
+bool PsgDecoder::tick(File &f, AyControl& out)
 {
   if (mSkipTicks)
   {
@@ -34,17 +54,20 @@ bool PsgDecoder::tick(File &f, Stream& out)
 
   while (true)
   {
-    if (!f.available()) 
+    // TODO: proper eof check
+    if (!f.available())
     {
       Serial.println("PSG: eof");
       return false;
     }
-    uint8_t cmd = f.read();
+    
+    uint8_t cmd = f.read();    
     if (cmd == CMD_END)
     {
       Serial.println("PSG: end cmd");
       return false;
     }
+    
     else if (cmd == CMD_INTERRUPT)
     {
       //Serial.println("PSG: interrupt");
@@ -59,20 +82,8 @@ bool PsgDecoder::tick(File &f, Stream& out)
     else if (cmd < 16)
     {
       uint8_t value = f.read();
-//      Serial.print("PSG: cmd ");
-//      Serial.print(cmd);
-//      Serial.print(" value ");
-//      Serial.println(value);
-      if (cmd == 13)  // Envelope bugfix
-      {
-        if (value == 255)
-        {
-          continue;
-        }
-      }
-
-      out.write(cmd);
-      out.write(value);
+      if (cmd == 13 && value == 255) continue;  // Envelope bugfix
+      out.write(cmd, value);
     }
     else
     {
